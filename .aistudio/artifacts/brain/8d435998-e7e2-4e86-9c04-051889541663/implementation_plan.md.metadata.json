@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan de arquitectura acústica para el motor V12 de competición de Apex GT:\n- Modelado físico de pulsos de encendido V12 (6 explosiones por vuelta de cigüeñal).\n- Eliminación de zumbidos artificiales y silbidos de caja de cambios.\n- Sistema de escape abierto con resonador biquad y saturación no lineal.\n- Módulo de petardeos y detonaciones balísticas en desaceleración y limitador de corte.",
+  "updatedAt":  "2026-10-09T22:35:28.671258387Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
