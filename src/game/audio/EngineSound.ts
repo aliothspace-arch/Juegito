@@ -1,8 +1,9 @@
 /**
  * EngineSound.ts - Web Audio API Synthesizer for high-performance race cars
- * Procedurally generates realistic multi-oscillator V12 Endurance Prototype racing engine roar,
- * open-exhaust manifold resonance, deceleration backfire pops & bangs, tire screeching,
- * collision impact crunch and pit stop chimes. Zero artificial whistling or high-pitch buzzers.
+ * Procedurally generates a balanced 50/50 hybrid acoustic profile:
+ * - Deep, heavy, guttural American Racing V8 muscle roar (cross-plane firing order, 35-360 Hz)
+ * - Subtle, progressive, high-tech F1 hybrid turbo / MGU-K whine (silky sine wave, 1.5-3.4 kHz)
+ * - Pure zero-backfire acoustics: no pops, bangs, or artificial detonations.
  */
 
 export class EngineSound {
@@ -10,7 +11,7 @@ export class EngineSound {
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
 
-  // Competition Racing V12 Endurance Prototype Synthesizer (Naturally Aspirated Screamer)
+  // Branch A: American Muscle Competition V8 Synthesizer (Heavy Low-Mid Core & High-Pressure Exhaust)
   private oscBase: OscillatorNode | null = null;
   private oscHarmonic1: OscillatorNode | null = null;
   private oscHarmonic2: OscillatorNode | null = null;
@@ -25,14 +26,23 @@ export class EngineSound {
   private gainSub: GainNode | null = null;
   private intakeFilter: BiquadFilterNode | null = null;
   private exhaustResonance: BiquadFilterNode | null = null;
+  private exhaustBassPunch: BiquadFilterNode | null = null;
+  private revLimiterGain: GainNode | null = null;
+  private isAtLimiterActive: boolean = false;
+  private nextLimiterTime: number = 0;
+  private limiterBarkBuffer: AudioBuffer | null = null;
   private engineBusGain: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private masterGain: GainNode | null = null;
   private engineFilter: BiquadFilterNode | null = null;
   private distortion: WaveShaperNode | null = null;
-  private lastLimiterPopTime: number = 0;
-  private lastDecelPopTime: number = 0;
-  private prevThrottle: number = 0;
+  private distortionPreGain: GainNode | null = null;
+  private distortionPostGain: GainNode | null = null;
+
+  // Branch B: Subtle High-Tech F1 Hybrid Aero / MGU-K Whine Synthesizer (50/50 Balance)
+  private f1WhineOsc: OscillatorNode | null = null;
+  private f1WhineFilter: BiquadFilterNode | null = null;
+  private f1WhineGain: GainNode | null = null;
 
   // Turbo whistle
   private turboOsc: OscillatorNode | null = null;
@@ -84,33 +94,27 @@ export class EngineSound {
 
   private createCombustionPeriodicWave(): PeriodicWave | null {
     if (!this.ctx) return null;
-    const n = 32;
+    const n = 24;
     const real = new Float32Array(n);
     const imag = new Float32Array(n);
     real[0] = 0;
     imag[0] = 0;
 
-    // Acoustic physical profile of open-exhaust V12 Endurance Prototype:
-    // Heavy fundamental (12-cylinder pressure wavefront), massive 2nd & 3rd manifold resonance,
-    // rich odd harmonics giving the signature Le Mans ripping metallic roar without digital buzzing.
+    // Acoustic physical profile of heavy American Competition V8 (cross-plane muscle):
+    // Massive visceral fundamental (chest impact), thick manifold growl, heavy mid body, zero shrill treble.
     const amplitudes = [
       0.0,   // 0: DC
-      1.00,  // 1: Primary cylinder pulse (throaty combustion core)
-      0.92,  // 2: 6-into-1 manifold collector merge growl
-      0.78,  // 3: Acoustic pipe standing wave
-      0.62,  // 4: Cylinder bark
-      0.50,  // 5: Open-header rasp (odd harmonic)
-      0.38,  // 6: Header chamber resonance
-      0.29,  // 7: Metallic edge
-      0.21,  // 8: Exhaust pipe ring
-      0.15,  // 9: Screaming Le Mans overtone
-      0.10,  // 10: High-order mechanical bark
-      0.065, // 11
-      0.042, // 12
-      0.026, // 13
-      0.016, // 14
-      0.009, // 15
-      0.005, // 16
+      1.35,  // 1: Primary massive cylinder pulse (deep chest punch core)
+      1.10,  // 2: Dual exhaust cross-flow rumble
+      0.85,  // 3: Cross-plane firing cadence growl
+      0.55,  // 4: Cylinder bark
+      0.32,  // 5: Low-mid mechanical presence
+      0.18,  // 6: Header chamber resonance
+      0.09,  // 7
+      0.04,  // 8
+      0.02,  // 9
+      0.008, // 10
+      0.004, // 11
     ];
     for (let i = 1; i < Math.min(n, amplitudes.length); i++) {
       imag[i] = amplitudes[i];
@@ -120,25 +124,22 @@ export class EngineSound {
 
   private createCollectorPeriodicWave(): PeriodicWave | null {
     if (!this.ctx) return null;
-    const n = 24;
+    const n = 20;
     const real = new Float32Array(n);
     const imag = new Float32Array(n);
     real[0] = 0;
     imag[0] = 0;
 
-    // Secondary metallic collector wave for ripping high-RPM resonance
+    // High-pressure manifold collector wave for heavy muscle rumble
     const amplitudes = [
       0.0,  // 0: DC
-      0.60, // 1
-      1.00, // 2: Dominant collector merge
-      0.82, // 3: Pipe wall vibration
-      0.58, // 4
-      0.40, // 5
-      0.26, // 6
-      0.16, // 7
-      0.09, // 8
-      0.04, // 9
-      0.02, // 10
+      1.10, // 1: Manifold throat core
+      1.25, // 2: Collector merge rumble
+      0.85, // 3: Mid-pressure roar
+      0.45, // 4
+      0.22, // 5
+      0.08, // 6
+      0.02, // 7
     ];
     for (let i = 1; i < Math.min(n, amplitudes.length); i++) {
       imag[i] = amplitudes[i];
@@ -155,66 +156,90 @@ export class EngineSound {
 
       // Master Gain
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.44, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(0.48, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
 
       // Studio-grade Dynamics Compressor for broadcast punch and zero-clipping mix
+      // Attack of 12ms and release of 120ms prevents low-frequency waveform cycle modulation / buzzing
       this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-15, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(4.8, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.0015, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.075, this.ctx.currentTime);
+      this.compressor.threshold.setValueAtTime(-20, this.ctx.currentTime);
+      this.compressor.knee.setValueAtTime(14, this.ctx.currentTime);
+      this.compressor.ratio.setValueAtTime(3.8, this.ctx.currentTime);
+      this.compressor.attack.setValueAtTime(0.012, this.ctx.currentTime);
+      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
       this.compressor.connect(this.masterGain);
 
-      // Dedicated Competition Racing Engine Bus
+      // Dedicated Competition Racing Engine Bus (Amplified authority & presence)
       this.engineBusGain = this.ctx.createGain();
-      this.engineBusGain.gain.setValueAtTime(0.96, this.ctx.currentTime);
+      this.engineBusGain.gain.setValueAtTime(1.35, this.ctx.currentTime);
       this.engineBusGain.connect(this.compressor);
 
-      // Waveshaper for warm open-exhaust Inconel pipe harmonic saturation (tanh non-linearity)
+      // Rev Limiter Staccato Gate (cuts engine combustion instantly on redline)
+      this.revLimiterGain = this.ctx.createGain();
+      this.revLimiterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+      this.revLimiterGain.connect(this.engineBusGain);
+
+      // Waveshaper Pre-Gain Attenuator: Keeps combined multi-oscillator voltage safely within [-0.92, 0.92]
+      // to eliminate intermodulation hard-clipping hash (background interference artifact)
+      this.distortionPreGain = this.ctx.createGain();
+      this.distortionPreGain.gain.setValueAtTime(0.24, this.ctx.currentTime);
+
       this.distortion = this.ctx.createWaveShaper();
-      this.distortion.curve = this.makeDistortionCurve(4.8) as unknown as Float32Array<ArrayBuffer>;
+      this.distortion.curve = this.makeDistortionCurve(4.5) as unknown as Float32Array<ArrayBuffer>;
       this.distortion.oversample = '4x';
 
-      // Open-Exhaust Pipe Chamber Resonator (peaking filter with dynamic Q and gain)
+      // Waveshaper Post-Gain: Restores the full muscular acoustic volume cleanly after smooth saturation
+      this.distortionPostGain = this.ctx.createGain();
+      this.distortionPostGain.gain.setValueAtTime(3.6, this.ctx.currentTime);
+
+      // Deep American Exhaust Chamber Resonator (massive open-pipe pressure body)
       this.exhaustResonance = this.ctx.createBiquadFilter();
       this.exhaustResonance.type = 'peaking';
-      this.exhaustResonance.frequency.setValueAtTime(340, this.ctx.currentTime);
-      this.exhaustResonance.Q.setValueAtTime(2.4, this.ctx.currentTime);
-      this.exhaustResonance.gain.setValueAtTime(7.0, this.ctx.currentTime);
+      this.exhaustResonance.frequency.setValueAtTime(230, this.ctx.currentTime);
+      this.exhaustResonance.Q.setValueAtTime(2.2, this.ctx.currentTime);
+      this.exhaustResonance.gain.setValueAtTime(8.5, this.ctx.currentTime);
 
-      // Engine low-pass filter (warm analog curve, eliminates any synthetic whistle or digital artifacts above 4.8 kHz)
+      // Visceral Sub-Bass / Exhaust Pressure Punch Resonator (65 - 125 Hz chest punch)
+      this.exhaustBassPunch = this.ctx.createBiquadFilter();
+      this.exhaustBassPunch.type = 'peaking';
+      this.exhaustBassPunch.frequency.setValueAtTime(75, this.ctx.currentTime);
+      this.exhaustBassPunch.Q.setValueAtTime(1.9, this.ctx.currentTime);
+      this.exhaustBassPunch.gain.setValueAtTime(9.5, this.ctx.currentTime);
+
+      // Warm Engine low-pass filter (strictly removes any shrill high frequencies, keeps muscle body)
       this.engineFilter = this.ctx.createBiquadFilter();
       this.engineFilter.type = 'lowpass';
-      this.engineFilter.frequency.setValueAtTime(1400, this.ctx.currentTime);
-      this.engineFilter.Q.setValueAtTime(1.4, this.ctx.currentTime);
+      this.engineFilter.frequency.setValueAtTime(580, this.ctx.currentTime);
+      this.engineFilter.Q.setValueAtTime(1.2, this.ctx.currentTime);
 
-      // Signal chain:
-      // Distortion -> Exhaust Resonance -> Engine Filter -> Engine Bus -> Compressor -> Master
-      this.distortion.connect(this.exhaustResonance);
-      this.exhaustResonance.connect(this.engineFilter);
-      this.engineFilter.connect(this.engineBusGain);
+      // Branch A Signal Chain:
+      // DistortionPreGain -> Distortion -> DistortionPostGain -> Exhaust Resonance -> Exhaust Bass Punch -> Engine Filter -> Rev Limiter Gain -> Engine Bus -> Compressor -> Master
+      this.distortionPreGain.connect(this.distortion);
+      this.distortion.connect(this.distortionPostGain);
+      this.distortionPostGain.connect(this.exhaustResonance);
+      this.exhaustResonance.connect(this.exhaustBassPunch);
+      this.exhaustBassPunch.connect(this.engineFilter);
+      this.engineFilter.connect(this.revLimiterGain);
 
       // Generate physical cylinder combustion wave and collector wave
       this.combustionWave = this.createCombustionPeriodicWave();
       this.collectorWave = this.createCollectorPeriodicWave();
 
-      // Oscillator 1: Primary V12 ignition pulse train (6 explosions per crank revolution)
+      // Branch A: Oscillator 1: Primary American V8 ignition pulse train (2.25 pulses per crank revolution)
       this.oscBase = this.ctx.createOscillator();
       if (this.combustionWave) {
         this.oscBase.setPeriodicWave(this.combustionWave);
       } else {
         this.oscBase.type = 'sawtooth';
       }
-      this.oscBase.frequency.setValueAtTime(100, this.ctx.currentTime); // 100 Hz = 1000 RPM idle for V12
+      this.oscBase.frequency.setValueAtTime(37.5, this.ctx.currentTime); // 37.5 Hz = deep 1000 RPM American V8 idle
       this.gainBase = this.ctx.createGain();
-      this.gainBase.gain.setValueAtTime(0.58, this.ctx.currentTime);
+      this.gainBase.gain.setValueAtTime(0.75, this.ctx.currentTime);
       this.oscBase.connect(this.gainBase);
-      this.gainBase.connect(this.distortion);
+      this.gainBase.connect(this.distortionPreGain);
       this.oscBase.start();
 
-      // Oscillator 2: Exhaust collector resonance (Collector wave, 2x order harmonic scream)
+      // Branch A: Oscillator 2: Exhaust collector resonance (Collector wave, 2x order harmonic growl)
       this.oscHarmonic1 = this.ctx.createOscillator();
       if (this.collectorWave) {
         this.oscHarmonic1.setPeriodicWave(this.collectorWave);
@@ -223,47 +248,65 @@ export class EngineSound {
       } else {
         this.oscHarmonic1.type = 'sawtooth';
       }
-      this.oscHarmonic1.frequency.setValueAtTime(200, this.ctx.currentTime);
+      this.oscHarmonic1.frequency.setValueAtTime(75, this.ctx.currentTime);
       this.gainH1 = this.ctx.createGain();
-      this.gainH1.gain.setValueAtTime(0.38, this.ctx.currentTime);
+      this.gainH1.gain.setValueAtTime(0.52, this.ctx.currentTime);
       this.oscHarmonic1.connect(this.gainH1);
-      this.gainH1.connect(this.distortion);
+      this.gainH1.connect(this.distortionPreGain);
       this.oscHarmonic1.start();
 
-      // Oscillator 3: Half-order bank rasp & mechanical grit (uneven cylinder bank firing)
+      // Branch A: Oscillator 3: Cross-plane firing texture (1.5x order guttural rasp)
       this.oscHarmonic2 = this.ctx.createOscillator();
-      this.oscHarmonic2.type = 'sawtooth';
-      this.oscHarmonic2.frequency.setValueAtTime(50, this.ctx.currentTime);
+      this.oscHarmonic2.type = 'triangle';
+      this.oscHarmonic2.frequency.setValueAtTime(56, this.ctx.currentTime);
       this.gainH2 = this.ctx.createGain();
-      this.gainH2.gain.setValueAtTime(0.28, this.ctx.currentTime);
+      this.gainH2.gain.setValueAtTime(0.44, this.ctx.currentTime);
       this.oscHarmonic2.connect(this.gainH2);
-      this.gainH2.connect(this.distortion);
+      this.gainH2.connect(this.distortionPreGain);
       this.oscHarmonic2.start();
 
-      // Oscillator 4: Airbox Ram-Air Intake Roar (Deep guttural induction growl under WOT)
+      // Branch A: Oscillator 4: Big-block Airbox Intake Roar (Deep induction growl)
       this.oscIntake = this.ctx.createOscillator();
       this.oscIntake.type = 'sawtooth';
-      this.oscIntake.frequency.setValueAtTime(100, this.ctx.currentTime);
+      this.oscIntake.frequency.setValueAtTime(38, this.ctx.currentTime);
       this.intakeFilter = this.ctx.createBiquadFilter();
       this.intakeFilter.type = 'bandpass';
-      this.intakeFilter.frequency.setValueAtTime(320, this.ctx.currentTime);
-      this.intakeFilter.Q.setValueAtTime(2.2, this.ctx.currentTime);
+      this.intakeFilter.frequency.setValueAtTime(240, this.ctx.currentTime);
+      this.intakeFilter.Q.setValueAtTime(1.8, this.ctx.currentTime);
       this.gainIntake = this.ctx.createGain();
       this.gainIntake.gain.setValueAtTime(0.001, this.ctx.currentTime);
       this.oscIntake.connect(this.intakeFilter);
       this.intakeFilter.connect(this.gainIntake);
-      this.gainIntake.connect(this.distortion);
+      this.gainIntake.connect(this.distortionPreGain);
       this.oscIntake.start();
 
-      // Oscillator 5: Sub-bass engine block physical displacement (Solid chest thump at crank rotational speed)
+      // Branch A: Oscillator 5: Sub-bass engine block physical displacement (visceral 40 Hz - 145 Hz rumble)
       this.oscSub = this.ctx.createOscillator();
       this.oscSub.type = 'sine';
-      this.oscSub.frequency.setValueAtTime(16.7, this.ctx.currentTime); // 16.7 Hz = 1000 RPM crank rotation
+      this.oscSub.frequency.setValueAtTime(38, this.ctx.currentTime);
       this.gainSub = this.ctx.createGain();
-      this.gainSub.gain.setValueAtTime(0.48, this.ctx.currentTime);
+      this.gainSub.gain.setValueAtTime(0.85, this.ctx.currentTime);
       this.oscSub.connect(this.gainSub);
-      this.gainSub.connect(this.compressor); // Bypasses distortion for clean, deep seismic bass
+      this.gainSub.connect(this.revLimiterGain); // Sub bass is gated by rev limiter for razor-sharp staccato cuts
       this.oscSub.start();
+
+      // Branch B: Subtle F1 Hybrid Turbo / MGU-K Whine (Smooth pure sine with silky bandpass sweep)
+      this.f1WhineOsc = this.ctx.createOscillator();
+      this.f1WhineOsc.type = 'sine'; // Pure sine wave: silky, high-tech, zero buzzer harshness
+      this.f1WhineOsc.frequency.setValueAtTime(1500, this.ctx.currentTime);
+
+      this.f1WhineFilter = this.ctx.createBiquadFilter();
+      this.f1WhineFilter.type = 'bandpass';
+      this.f1WhineFilter.frequency.setValueAtTime(1800, this.ctx.currentTime);
+      this.f1WhineFilter.Q.setValueAtTime(1.8, this.ctx.currentTime);
+
+      this.f1WhineGain = this.ctx.createGain();
+      this.f1WhineGain.gain.setValueAtTime(0.005, this.ctx.currentTime);
+
+      this.f1WhineOsc.connect(this.f1WhineFilter);
+      this.f1WhineFilter.connect(this.f1WhineGain);
+      this.f1WhineGain.connect(this.engineBusGain); // Connected directly into engine bus (sings uninterrupted during limiter cut!)
+      this.f1WhineOsc.start();
 
       // Aeroacoustic Wind Roar (Gear Whine is completely silenced to eliminate any whistle)
       this.setupWindAndGearWhineSound();
@@ -276,6 +319,15 @@ export class EngineSound {
 
       // Flat Tire Rhythmic Grinding and Flapping Loop
       this.setupFlatTireSound();
+
+      // Pre-bake staccato rev-limiter bark buffer (0.035s crisp unburnt-fuel crack)
+      const barkSize = Math.floor(this.ctx.sampleRate * 0.035);
+      this.limiterBarkBuffer = this.ctx.createBuffer(1, barkSize, this.ctx.sampleRate);
+      const barkData = this.limiterBarkBuffer.getChannelData(0);
+      for (let i = 0; i < barkSize; i++) {
+        const env = Math.exp(-i / (this.ctx.sampleRate * 0.007));
+        barkData[i] = ((Math.random() * 2 - 1) * 0.85 + Math.sin(i * 0.24) * 0.5) * env;
+      }
 
       // Pre-bake backfire noise buffer (0.16s sharp explosive crack)
       const bfSize = Math.floor(this.ctx.sampleRate * 0.16);
@@ -308,6 +360,30 @@ export class EngineSound {
     }
   }
 
+  private playStaccatoBark(time: number): void {
+    if (!this.ctx || !this.limiterBarkBuffer || !this.engineBusGain) return;
+    try {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.limiterBarkBuffer;
+
+      const bFilter = this.ctx.createBiquadFilter();
+      bFilter.type = 'bandpass';
+      bFilter.frequency.setValueAtTime(780, time);
+      bFilter.Q.setValueAtTime(2.2, time);
+
+      const bGain = this.ctx.createGain();
+      bGain.gain.setValueAtTime(0.42, time);
+      bGain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+
+      src.connect(bFilter);
+      bFilter.connect(bGain);
+      bGain.connect(this.engineBusGain);
+
+      src.start(time);
+      src.stop(time + 0.04);
+    } catch {}
+  }
+
   private makeDistortionCurve(amount: number): Float32Array {
     const nSamples = 44100;
     const curve = new Float32Array(nSamples);
@@ -316,7 +392,7 @@ export class EngineSound {
       // High-SPL racing exhaust manifold compression:
       // Tanh soft-saturation compresses high pressure peaks while generating warm even and odd overtones
       const driven = x * amount;
-      curve[i] = Math.tanh(driven * 1.15) * 0.88 + 0.12 * Math.sin(x * Math.PI);
+      curve[i] = Math.tanh(driven * 1.25) * 0.85 + 0.15 * Math.sin(x * Math.PI * 0.9);
     }
     return curve;
   }
@@ -330,6 +406,13 @@ export class EngineSound {
     const data = this.screechNoiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       data[i] = (Math.random() * 2 - 1) * 0.7;
+    }
+    // Seamless Hann window taper to eliminate 2-second loop click/interference
+    const screechFade = 2048;
+    for (let i = 0; i < screechFade; i++) {
+      const w = 0.5 * (1 - Math.cos((i * Math.PI) / screechFade));
+      data[i] *= w;
+      data[bufferSize - 1 - i] *= w;
     }
 
     // 1. Mid-Band Screech (800 - 2400 Hz elastic rubber peel)
@@ -351,7 +434,7 @@ export class EngineSound {
     this.tireRumbleFilter.connect(this.tireRumbleGain);
     this.tireRumbleGain.connect(this.masterGain);
 
-    // 3. High-Band Rubber Tear & Grain Hiss (3500 - 6800 Hz)
+    // 3. High-Band Rubber Tear & Grain Hiss (Muted to eliminate static noise)
     this.tireTearFilter = this.ctx.createBiquadFilter();
     this.tireTearFilter.type = 'highpass';
     this.tireTearFilter.frequency.setValueAtTime(3800, this.ctx.currentTime);
@@ -371,7 +454,6 @@ export class EngineSound {
 
     this.screechSource.connect(this.screechFilter);
     if (this.tireRumbleFilter) this.screechSource.connect(this.tireRumbleFilter);
-    if (this.tireTearFilter) this.screechSource.connect(this.tireTearFilter);
 
     this.screechSource.start();
   }
@@ -384,10 +466,15 @@ export class EngineSound {
     this.scrapeNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = this.scrapeNoiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      // High-frequency abrasive distribution
       const raw = (Math.random() * 2 - 1);
-      const crackle = Math.random() > 0.96 ? (Math.random() * 2 - 1) * 1.8 : 0;
-      data[i] = (raw * 0.6 + crackle) * 0.8;
+      data[i] = raw * 0.55;
+    }
+    // Seamless Hann window taper to eliminate loop boundary clicks
+    const scrapeFade = 2048;
+    for (let i = 0; i < scrapeFade; i++) {
+      const w = 0.5 * (1 - Math.cos((i * Math.PI) / scrapeFade));
+      data[i] *= w;
+      data[bufferSize - 1 - i] *= w;
     }
 
     // Resonant bandpass filter (metal grinding timbre)
@@ -402,7 +489,7 @@ export class EngineSound {
     this.scrapeFilter.connect(this.scrapeGain);
     this.scrapeGain.connect(this.masterGain);
 
-    // 2. High-pass spark sputtering crackle layer
+    // 2. High-pass spark sputtering crackle layer (muted to prevent electrical interference sound)
     this.scrapeCrackleFilter = this.ctx.createBiquadFilter();
     this.scrapeCrackleFilter.type = 'highpass';
     this.scrapeCrackleFilter.frequency.setValueAtTime(5800, this.ctx.currentTime);
@@ -425,15 +512,6 @@ export class EngineSound {
       this.scrapeSource.connect(this.scrapeFilter);
     }
     this.scrapeSource.start();
-
-    // Sputter crackle source
-    this.scrapeCrackleSource = this.ctx.createBufferSource();
-    this.scrapeCrackleSource.buffer = this.scrapeNoiseBuffer;
-    this.scrapeCrackleSource.loop = true;
-    if (this.scrapeCrackleFilter) {
-      this.scrapeCrackleSource.connect(this.scrapeCrackleFilter);
-    }
-    this.scrapeCrackleSource.start();
   }
 
   private setupWindAndGearWhineSound(): void {
@@ -455,6 +533,13 @@ export class EngineSound {
       b5 = -0.7616 * b5 - white * 0.0168980;
       data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.16;
       b6 = white * 0.115926;
+    }
+    // Seamless Hann window taper to eliminate 2-second loop click
+    const windFade = 2048;
+    for (let i = 0; i < windFade; i++) {
+      const w = 0.5 * (1 - Math.cos((i * Math.PI) / windFade));
+      data[i] *= w;
+      data[windBufferSize - 1 - i] *= w;
     }
 
     this.windFilter = this.ctx.createBiquadFilter();
@@ -493,7 +578,7 @@ export class EngineSound {
       this.scrapeGain.gain.setTargetAtTime(targetGain, t, 0.035);
     }
     if (this.scrapeCrackleGain) {
-      this.scrapeCrackleGain.gain.setTargetAtTime(targetGain * 0.55, t, 0.025);
+      this.scrapeCrackleGain.gain.setTargetAtTime(0, t, 0.025);
     }
     if (this.scrapeFilter) {
       // Frequency shifts with speed (grinding pitch rises with speed)
@@ -530,110 +615,137 @@ export class EngineSound {
 
     const t = this.ctx.currentTime;
 
-    // Competition V12 racing engine firing rate (6 explosions per crank revolution):
-    // 100 Hz at idle (1000 RPM) to 950 Hz at redline (9500 RPM)
+    // Competition American Muscle V8 firing profile (2.25 pulses per crank rev):
+    // 37.5 Hz at idle (1000 RPM) to 356 Hz at redline (9500 RPM) - heavy, deep guttural roar
     const rps = rpm / 60;
-    const baseFreq = Math.max(75, rps * 6.0);
+    const baseFreq = Math.max(34, rps * 2.25);
     const rpmNorm = Math.min(1.0, Math.max(0.0, (rpm - 1000) / (9500 - 1000)));
     const throttleNorm = Math.min(1.0, Math.max(0.0, throttle));
     const throttleSq = Math.pow(throttleNorm, 1.25);
 
-    // High-duration Racing Camshaft Idle Lope ("brap-brap-brap" uneven mechanical lump at idle)
-    const camLope = (1.0 - rpmNorm) * (Math.sin(now * 0.026) * 0.14 + Math.sin(now * 0.015) * 0.09);
+    // American Cross-Plane V8 Camshaft Idle Lope ("chug-chug-chug" uneven muscle lope at idle)
+    const camLope = (1.0 - rpmNorm) * (Math.sin(now * 0.024) * 0.16 + Math.sin(now * 0.012) * 0.10);
 
-    // Subtle sputtering frequency jitter if engine is damaged
-    const healthJitter = engineHealth < 0.6 ? (Math.random() - 0.5) * (1 - engineHealth) * 20 : 0;
+    // Smooth mechanical misfire lope when engine is damaged (eliminates random white-noise jitter that sounded like interference)
+    const healthJitter = engineHealth < 0.6 ? Math.sin(now * 0.018) * (1 - engineHealth) * 8.0 : 0;
 
-    // Deceleration lift-off backfire (pops & bangs): unburnt fuel exploding in hot open exhaust headers
-    const throttleDrop = this.prevThrottle - throttleNorm;
-    if (throttleDrop > 0.28 && rpm > 3200 && now - this.lastDecelPopTime > 380) {
-      this.lastDecelPopTime = now;
-      this.triggerBackfire(rpm > 6500);
-      // Staggered secondary explosive pop
-      setTimeout(() => {
-        if (this.ctx && !this.isMuted) {
-          this.triggerBackfire(false);
+    // --- ULTRA-RAPID AGGRESSIVE COMPETITION STACCATO REV LIMITER ("AL CORTE") ---
+    const isAtRevLimiter = rpm >= 9320 && throttleNorm > 0.45;
+
+    if (isAtRevLimiter) {
+      if (!this.isAtLimiterActive || this.nextLimiterTime < t) {
+        this.isAtLimiterActive = true;
+        this.nextLimiterTime = t;
+      }
+
+      // 19.2 Hz machine-gun competition ignition cut: 52ms total cycle
+      // 28ms explosive firing burst + 24ms instantaneous dead spark cut
+      const cyclePeriod = 0.052;
+      const fireDuration = 0.028;
+
+      while (this.nextLimiterTime < t + 0.09) {
+        const tFire = this.nextLimiterTime;
+        const tCut = tFire + fireDuration;
+
+        if (this.revLimiterGain) {
+          // Instant high-amplitude refire pulse
+          this.revLimiterGain.gain.setValueAtTime(1.25, tFire);
+          // Razor-sharp dead cut
+          this.revLimiterGain.gain.setValueAtTime(0.03, tCut);
         }
-      }, 95);
-      if (rpm > 6200) {
-        setTimeout(() => {
-          if (this.ctx && !this.isMuted) {
-            this.triggerBackfire(false);
-          }
-        }, 190);
+
+        // Trigger violent unburnt-fuel exhaust crack transient
+        this.playStaccatoBark(tFire);
+
+        this.nextLimiterTime += cyclePeriod;
+      }
+    } else {
+      if (this.isAtLimiterActive) {
+        this.isAtLimiterActive = false;
+        if (this.revLimiterGain) {
+          this.revLimiterGain.gain.cancelScheduledValues(t);
+          this.revLimiterGain.gain.setValueAtTime(this.revLimiterGain.gain.value, t);
+          this.revLimiterGain.gain.setTargetAtTime(1.0, t, 0.018);
+        }
+        this.nextLimiterTime = t;
       }
     }
-    this.prevThrottle = throttleNorm;
 
-    // Hard Rev Limiter Stutter: ignition cut above 9350 RPM under load ("DA-DA-DA-DA!")
-    const isAtRevLimiter = rpm >= 9350 && throttleNorm > 0.45;
-    const limiterCut = isAtRevLimiter ? (Math.sin(now * 0.26) > 0.0 ? 1.0 : 0.08) : 1.0;
-
-    if (isAtRevLimiter && now - this.lastLimiterPopTime > 65) {
-      this.lastLimiterPopTime = now;
-      this.triggerBackfire(true);
-    }
-
-    // Dynamic Oscillator Frequency Modulation
+    // Branch A: Dynamic American Muscle Oscillator Frequency Modulation
     if (this.oscBase) {
-      this.oscBase.frequency.setTargetAtTime(baseFreq + (camLope * 8.0) + healthJitter, t, 0.035);
+      this.oscBase.frequency.setTargetAtTime(baseFreq + (camLope * 5.0) + healthJitter, t, 0.035);
     }
     if (this.oscHarmonic1) {
-      // 2nd order harmonic (6-into-1 exhaust collector merge screaming overtone)
+      // 2nd order harmonic (manifold collector growl)
       this.oscHarmonic1.frequency.setTargetAtTime(baseFreq * 2.0, t, 0.035);
     }
     if (this.oscHarmonic2) {
-      // Half-order cylinder bank sub-harmonic (guttural mechanical grit)
-      this.oscHarmonic2.frequency.setTargetAtTime(baseFreq * 0.5 + 0.4, t, 0.035);
+      // 1.5 order cross-plane texture
+      this.oscHarmonic2.frequency.setTargetAtTime(baseFreq * 1.5 + 0.3, t, 0.035);
     }
     if (this.oscIntake) {
-      // Airbox intake roar frequency
+      // Big-block intake scoop roar
       this.oscIntake.frequency.setTargetAtTime(baseFreq * 1.0, t, 0.04);
     }
     if (this.oscSub) {
-      // Physical engine block rotational vibration (crankshaft rotational speed)
-      this.oscSub.frequency.setTargetAtTime(Math.max(18, rps * 1.0), t, 0.04);
+      // Sub-bass crankshaft displacement (punchy 40 - 145 Hz)
+      this.oscSub.frequency.setTargetAtTime(Math.max(40, rps * 1.45), t, 0.035);
     }
 
-    // Dynamic Mix: deep guttural roar under throttle, piercing metallic scream at high RPM
+    // Branch B: Subtle F1 Hybrid Aero / MGU-K Whine Modulation (Smooth pure sine wave, 100% preserved)
+    if (this.f1WhineOsc && this.f1WhineFilter && this.f1WhineGain) {
+      // High-tech F1 whistle frequency rises progressively with RPM & throttle (1500 Hz to 3400 Hz)
+      const f1Pitch = 1500 + rpmNorm * 1550 + throttleNorm * 350;
+      this.f1WhineOsc.frequency.setTargetAtTime(f1Pitch, t, 0.045);
+      this.f1WhineFilter.frequency.setTargetAtTime(f1Pitch, t, 0.045);
+
+      // Balanced 50/50 volume blend: subtle at idle, swells progressively under load (uninterrupted during rev cut)
+      const f1Volume = 0.012 + (rpmNorm * 0.18 + throttleSq * 0.24) * 0.90;
+      this.f1WhineGain.gain.setTargetAtTime(f1Volume, t, 0.04);
+    }
+
+    // Branch A Mix: massive guttural American muscle roar with reinforced deep bass
     if (this.gainBase) {
-      const baseVol = (0.52 + 0.22 * rpmNorm + 0.20 * throttleSq) * (1.0 + camLope);
-      this.gainBase.gain.setTargetAtTime(baseVol * limiterCut, t, 0.03);
+      const baseVol = (0.75 + 0.28 * rpmNorm + 0.32 * throttleSq) * (1.0 + camLope);
+      this.gainBase.gain.setTargetAtTime(baseVol, t, 0.03);
     }
     if (this.gainH1) {
-      // Collector scream intensifies dramatically under load and high revs
-      const h1Vol = 0.30 + 0.38 * rpmNorm + 0.28 * throttleSq;
-      this.gainH1.gain.setTargetAtTime(h1Vol * limiterCut, t, 0.03);
+      const h1Vol = 0.52 + 0.30 * rpmNorm + 0.28 * throttleSq;
+      this.gainH1.gain.setTargetAtTime(h1Vol, t, 0.03);
     }
     if (this.gainH2) {
-      // Bank rasp provides raw mechanical bite
-      const h2Vol = 0.26 + 0.18 * rpmNorm + 0.14 * throttleSq;
-      this.gainH2.gain.setTargetAtTime(h2Vol * limiterCut, t, 0.03);
+      const h2Vol = 0.44 + 0.24 * rpmNorm + 0.22 * throttleSq;
+      this.gainH2.gain.setTargetAtTime(h2Vol, t, 0.03);
     }
     if (this.gainIntake && this.intakeFilter) {
-      // Throaty intake roar swells on throttle
-      const intakeVol = throttleSq * (0.38 + 0.32 * rpmNorm);
-      this.gainIntake.gain.setTargetAtTime(Math.max(0.001, intakeVol) * limiterCut, t, 0.035);
-      this.intakeFilter.frequency.setTargetAtTime(260 + rpmNorm * 460 + throttleNorm * 220, t, 0.04);
+      const intakeVol = throttleSq * (0.55 + 0.35 * rpmNorm);
+      this.gainIntake.gain.setTargetAtTime(Math.max(0.001, intakeVol), t, 0.035);
+      this.intakeFilter.frequency.setTargetAtTime(240 + rpmNorm * 280 + throttleNorm * 140, t, 0.04);
     }
     if (this.gainSub) {
-      const subVol = 0.45 + 0.28 * throttleSq;
-      this.gainSub.gain.setTargetAtTime(subVol * limiterCut, t, 0.04);
+      const subVol = 0.85 + 0.45 * throttleSq;
+      this.gainSub.gain.setTargetAtTime(subVol, t, 0.03);
     }
 
-    // Open-Exhaust pipe chamber resonance (dynamic 320 Hz - 1050 Hz body with full throttle punch)
+    // Visceral Sub-Bass & Exhaust Pressure Punch (65 - 125 Hz chest punch)
+    if (this.exhaustBassPunch) {
+      const bassPunchFreq = 70 + rpmNorm * 45 + throttleNorm * 20;
+      this.exhaustBassPunch.frequency.setTargetAtTime(bassPunchFreq, t, 0.04);
+      this.exhaustBassPunch.gain.setTargetAtTime(8.5 + throttleSq * 4.5, t, 0.04);
+    }
+
+    // American Exhaust chamber resonance (warm 230 Hz - 440 Hz body)
     if (this.exhaustResonance) {
-      const resonanceFreq = 320 + rpmNorm * 520 + throttleNorm * 180;
+      const resonanceFreq = 230 + rpmNorm * 180 + throttleNorm * 80;
       this.exhaustResonance.frequency.setTargetAtTime(resonanceFreq, t, 0.04);
-      this.exhaustResonance.gain.setTargetAtTime(6.5 + throttleNorm * 4.5, t, 0.04);
-      this.exhaustResonance.Q.setTargetAtTime(2.4 + throttleNorm * 1.2, t, 0.04);
+      this.exhaustResonance.gain.setTargetAtTime(7.5 + throttleNorm * 3.5, t, 0.04);
     }
 
-    // Engine lowpass filter (opens from 950 Hz to 4750 Hz - warm, throaty, zero whistle or digital buzzing!)
+    // Engine lowpass filter (warm cutoff 520 Hz to 1850 Hz - strictly zero shrill buzzers)
     if (this.engineFilter) {
-      const minCutoff = 950;
-      const maxCutoff = 4750;
-      const targetCutoff = minCutoff + (maxCutoff - minCutoff) * Math.pow(Math.max(throttleNorm, 0.32 * rpmNorm), 1.15);
+      const minCutoff = 520;
+      const maxCutoff = 1850;
+      const targetCutoff = minCutoff + (maxCutoff - minCutoff) * Math.pow(Math.max(throttleNorm, 0.30 * rpmNorm), 1.15);
       this.engineFilter.frequency.setTargetAtTime(targetCutoff, t, 0.04);
     }
 
@@ -655,13 +767,9 @@ export class EngineSound {
       const rumbleFreq = 180 + Math.min(220, speed * 4.0);
       this.tireRumbleFilter.frequency.setTargetAtTime(rumbleFreq, t, 0.04);
     }
-
-    // 3. High-Band Rubber Tearing & Grain Hiss
-    if (this.tireTearGain && this.tireTearFilter) {
-      const tearIntensity = Math.pow(Math.min(1.0, Math.max(0.0, (slipRatio - 0.25) * 1.5)), 1.3) * speedGate;
-      this.tireTearGain.gain.setTargetAtTime(tearIntensity * 0.20, t, 0.04);
-      const tearFreq = 3400 + slipRatio * 1800;
-      this.tireTearFilter.frequency.setTargetAtTime(tearFreq, t, 0.04);
+    // 3. High-Band Rubber Tear & Grain Hiss (Muted to eliminate static noise/interference)
+    if (this.tireTearGain) {
+      this.tireTearGain.gain.setTargetAtTime(0, t, 0.04);
     }
 
     // 1. Aeroacoustic Wind Roar: Quadratic scaling with velocity (V^2 aero pressure) + High-Speed Buffeting (> 200 km/h)
@@ -689,62 +797,12 @@ export class EngineSound {
   }
 
   /**
-   * Sound effect for gear changes, rev-limiters and lift-off backfires (Authentic Le Mans open-exhaust cannon crack + shockwave)
+   * Sound effect for gear changes, rev-limiters and lift-off backfires
+   * Intentionally silenced per user specification: ZERO pops, bangs, or backfires
    */
-  public triggerBackfire(isHighRpm: boolean = false): void {
-    if (!this.isInitialized || !this.ctx || this.isMuted) return;
-
-    const t = this.ctx.currentTime;
-    
-    // 1. Explosive exhaust shockwave crack (sharp acoustic whip)
-    const noiseSource = this.ctx.createBufferSource();
-    if (this.backfireBuffer) {
-      noiseSource.buffer = this.backfireBuffer;
-    }
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(isHighRpm ? 1550 : 1150, t);
-    filter.Q.setValueAtTime(2.4, t);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(isHighRpm ? 0.78 : 0.50, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-
-    noiseSource.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.compressor ? this.compressor : this.masterGain!);
-    noiseSource.start();
-
-    // 2. Heavy low-end exhaust combustion shockwave punch (physical chest hit)
-    const punchOsc = this.ctx.createOscillator();
-    punchOsc.type = 'triangle';
-    punchOsc.frequency.setValueAtTime(isHighRpm ? 150 : 110, t);
-    punchOsc.frequency.exponentialRampToValueAtTime(28, t + 0.14);
-
-    const punchGain = this.ctx.createGain();
-    punchGain.gain.setValueAtTime(isHighRpm ? 0.72 : 0.46, t);
-    punchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-
-    punchOsc.connect(punchGain);
-    punchGain.connect(this.compressor ? this.compressor : this.masterGain!);
-    punchOsc.start(t);
-    punchOsc.stop(t + 0.17);
-
-    // 3. Metallic open-exhaust header ringing transient
-    const ringOsc = this.ctx.createOscillator();
-    ringOsc.type = 'sine';
-    ringOsc.frequency.setValueAtTime(isHighRpm ? 380 : 290, t + 0.01);
-    ringOsc.frequency.exponentialRampToValueAtTime(160, t + 0.08);
-
-    const ringGain = this.ctx.createGain();
-    ringGain.gain.setValueAtTime(isHighRpm ? 0.22 : 0.12, t + 0.01);
-    ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-
-    ringOsc.connect(ringGain);
-    ringGain.connect(this.compressor ? this.compressor : this.masterGain!);
-    ringOsc.start(t + 0.01);
-    ringOsc.stop(t + 0.10);
+  public triggerBackfire(_isHighRpm: boolean = false): void {
+    // Zero-backfire acoustic profile: completely muted
+    return;
   }
 
   /**
@@ -1055,13 +1113,7 @@ export class EngineSound {
       squelchFilter.Q.setValueAtTime(4.0, t);
 
       const squelchGain = this.ctx.createGain();
-      squelchGain.gain.setValueAtTime(0.18, t);
-      squelchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.085);
-
-      squelchSource.connect(squelchFilter);
-      squelchFilter.connect(squelchGain);
-      squelchGain.connect(this.masterGain!);
-      squelchSource.start(t);
+      squelchGain.gain.setValueAtTime(0, t);
     }
 
     // 2. F1 Team Radio Audio Bus with telephone bandpass filter (400Hz to 3200Hz)
@@ -1171,7 +1223,12 @@ export class EngineSound {
         if (this.oscIntake) { this.oscIntake.stop(); this.oscIntake.disconnect(); }
         if (this.oscSub) { this.oscSub.stop(); this.oscSub.disconnect(); }
         if (this.gearWhineOsc) { this.gearWhineOsc.stop(); this.gearWhineOsc.disconnect(); }
+        if (this.f1WhineOsc) { this.f1WhineOsc.stop(); this.f1WhineOsc.disconnect(); }
         if (this.flatTireOsc) { this.flatTireOsc.stop(); this.flatTireOsc.disconnect(); }
+        if (this.revLimiterGain) { this.revLimiterGain.disconnect(); }
+        if (this.exhaustBassPunch) { this.exhaustBassPunch.disconnect(); }
+        if (this.distortionPreGain) { this.distortionPreGain.disconnect(); }
+        if (this.distortionPostGain) { this.distortionPostGain.disconnect(); }
       } catch {
         // Safe catch for already stopped nodes
       }

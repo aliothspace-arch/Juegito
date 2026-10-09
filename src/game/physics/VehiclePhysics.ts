@@ -930,7 +930,7 @@ export class VehiclePhysics {
       ? Math.min(1.0, Math.max(0.0, Math.abs(this.speed) / 4.5))
       : 1.0;
 
-    const launchTargetRpm = this.idleRpm + Math.pow(throttle, 1.15) * 5200;
+    const launchTargetRpm = this.idleRpm + Math.pow(throttle, 1.15) * (effectiveMaxRpm - this.idleRpm);
     const targetRpm = THREE.MathUtils.lerp(
       launchTargetRpm,
       Math.max(this.idleRpm, speedRatioRpm),
@@ -948,9 +948,9 @@ export class VehiclePhysics {
     this.rpm += (targetRpm - this.rpm) * (1.0 - Math.exp(-rpmResponseRate * dt));
     this.rpm = THREE.MathUtils.clamp(this.rpm + misfireOffset, this.idleRpm, effectiveMaxRpm);
 
-    // Upshift with calibrated racing speed gates per gear
+    // Upshift with calibrated racing speed gates per gear (screams up to 9350 RPM right at redline cusp)
     const minUpshiftSpeed = this.gear === 1 ? 23.5 : (this.gear === 2 ? 39.0 : (this.gear === 3 ? 54.0 : (this.gear === 4 ? 68.0 : 80.0)));
-    const shiftRpmThreshold = Math.min(effectiveMaxRpm - 300, 8900 * powerFactor);
+    const shiftRpmThreshold = Math.min(effectiveMaxRpm - 120, 9350 * powerFactor);
     if (!this.isShifting && this.gear < 6 && this.rpm > shiftRpmThreshold && this.speed > minUpshiftSpeed) {
       this.gear++;
       this.isShifting = true;

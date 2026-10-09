@@ -117,7 +117,7 @@ export function playModeSelectChime(): void {
 }
 
 /**
- * High-octane V12 Endurance Prototype ignition roar sequence with open-exhaust flare and detonation pops
+ * High-octane American Muscle V8 ignition roar combined with subtle F1 hybrid whistle (zero backfires)
  */
 export function playEngineIgnitionRoar(): void {
   const ctx = getAudioContext();
@@ -126,26 +126,26 @@ export function playEngineIgnitionRoar(): void {
   try {
     const now = ctx.currentTime;
 
-    // 1. High-compression racing starter solenoid pulses
-    for (let i = 0; i < 4; i++) {
+    // 1. Heavy starter solenoid mechanical clicks
+    for (let i = 0; i < 3; i++) {
       const crankOsc = ctx.createOscillator();
       const crankGain = ctx.createGain();
-      const crankTime = now + i * 0.055;
+      const crankTime = now + i * 0.065;
 
       crankOsc.type = 'sawtooth';
-      crankOsc.frequency.setValueAtTime(140 + i * 22, crankTime);
+      crankOsc.frequency.setValueAtTime(110 + i * 15, crankTime);
 
-      crankGain.gain.setValueAtTime(0.08, crankTime);
-      crankGain.gain.exponentialRampToValueAtTime(0.001, crankTime + 0.038);
+      crankGain.gain.setValueAtTime(0.07, crankTime);
+      crankGain.gain.exponentialRampToValueAtTime(0.001, crankTime + 0.04);
 
       crankOsc.connect(crankGain);
       crankGain.connect(ctx.destination);
 
       crankOsc.start(crankTime);
-      crankOsc.stop(crankTime + 0.045);
+      crankOsc.stop(crankTime + 0.048);
     }
 
-    // 2. High-torque pneumatic starter motor whir (warm mechanical spin, zero whistle)
+    // 2. High-torque starter motor spin
     const starterWhir = ctx.createOscillator();
     const starterFilter = ctx.createBiquadFilter();
     const starterGain = ctx.createGain();
@@ -153,14 +153,14 @@ export function playEngineIgnitionRoar(): void {
     const starterEnd = now + 0.28;
 
     starterWhir.type = 'sawtooth';
-    starterWhir.frequency.setValueAtTime(160, starterStart);
-    starterWhir.frequency.exponentialRampToValueAtTime(320, starterEnd);
+    starterWhir.frequency.setValueAtTime(140, starterStart);
+    starterWhir.frequency.exponentialRampToValueAtTime(260, starterEnd);
 
     starterFilter.type = 'lowpass';
-    starterFilter.frequency.setValueAtTime(750, starterStart);
+    starterFilter.frequency.setValueAtTime(650, starterStart);
 
     starterGain.gain.setValueAtTime(0.001, starterStart);
-    starterGain.gain.linearRampToValueAtTime(0.09, starterStart + 0.06);
+    starterGain.gain.linearRampToValueAtTime(0.07, starterStart + 0.06);
     starterGain.gain.exponentialRampToValueAtTime(0.001, starterEnd);
 
     starterWhir.connect(starterFilter);
@@ -170,122 +170,83 @@ export function playEngineIgnitionRoar(): void {
     starterWhir.start(starterStart);
     starterWhir.stop(starterEnd);
 
-    // 3. V12 Combustion Ignition Roar (Violent rev flare to 6500 RPM followed by lumpy idle settling)
+    // 3. American V8 Muscle Roar: Deep, heavy, guttural combustion surge with massive bass punch
     const roarTime = now + 0.25;
     const roarDuration = 1.15;
 
-    // Sub-bass physical chest punch
+    // Sub-bass heavy crank physical punch & exhaust pressure core (40 Hz - 240 Hz)
     const subOsc = ctx.createOscillator();
     const subGain = ctx.createGain();
     subOsc.type = 'sawtooth';
-    subOsc.frequency.setValueAtTime(80, roarTime);
-    subOsc.frequency.exponentialRampToValueAtTime(320, roarTime + 0.22); // Rapid rev-up surge
-    subOsc.frequency.exponentialRampToValueAtTime(110, roarTime + roarDuration); // Settling to idle
+    subOsc.frequency.setValueAtTime(40, roarTime);
+    subOsc.frequency.exponentialRampToValueAtTime(240, roarTime + 0.22); // Powerful V8 surge
+    subOsc.frequency.exponentialRampToValueAtTime(42, roarTime + roarDuration); // Settling into deep American idle
 
-    subGain.gain.setValueAtTime(0.12, roarTime);
-    subGain.gain.exponentialRampToValueAtTime(0.24, roarTime + 0.20);
+    subGain.gain.setValueAtTime(0.20, roarTime);
+    subGain.gain.exponentialRampToValueAtTime(0.38, roarTime + 0.20);
     subGain.gain.exponentialRampToValueAtTime(0.001, roarTime + roarDuration);
 
     const roarFilter = ctx.createBiquadFilter();
     roarFilter.type = 'lowpass';
-    roarFilter.frequency.setValueAtTime(850, roarTime);
-    roarFilter.frequency.exponentialRampToValueAtTime(3600, roarTime + 0.22);
-    roarFilter.frequency.exponentialRampToValueAtTime(950, roarTime + roarDuration);
+    roarFilter.frequency.setValueAtTime(500, roarTime);
+    roarFilter.frequency.exponentialRampToValueAtTime(1550, roarTime + 0.22);
+    roarFilter.frequency.exponentialRampToValueAtTime(550, roarTime + roarDuration);
+
+    // Deep exhaust pressure bass punch filter
+    const bassPunchFilter = ctx.createBiquadFilter();
+    bassPunchFilter.type = 'peaking';
+    bassPunchFilter.frequency.setValueAtTime(75, roarTime);
+    bassPunchFilter.Q.setValueAtTime(2.0, roarTime);
+    bassPunchFilter.gain.setValueAtTime(9.0, roarTime);
 
     subOsc.connect(roarFilter);
-    roarFilter.connect(subGain);
+    roarFilter.connect(bassPunchFilter);
+    bassPunchFilter.connect(subGain);
     subGain.connect(ctx.destination);
 
     subOsc.start(roarTime);
     subOsc.stop(roarTime + roarDuration + 0.05);
 
-    // V12 Metallic collector scream (6-into-1 high-order rasp)
-    const screamOsc = ctx.createOscillator();
-    const screamGain = ctx.createGain();
-    screamOsc.type = 'sawtooth';
-    screamOsc.frequency.setValueAtTime(180, roarTime);
-    screamOsc.frequency.exponentialRampToValueAtTime(680, roarTime + 0.22);
-    screamOsc.frequency.exponentialRampToValueAtTime(220, roarTime + roarDuration);
+    // V8 Cross-plane Manifold Growl & Throat Rumble
+    const growlOsc = ctx.createOscillator();
+    const growlGain = ctx.createGain();
+    growlOsc.type = 'triangle';
+    growlOsc.frequency.setValueAtTime(80, roarTime);
+    growlOsc.frequency.exponentialRampToValueAtTime(460, roarTime + 0.22);
+    growlOsc.frequency.exponentialRampToValueAtTime(84, roarTime + roarDuration);
 
-    screamGain.gain.setValueAtTime(0.07, roarTime);
-    screamGain.gain.exponentialRampToValueAtTime(0.18, roarTime + 0.22);
-    screamGain.gain.exponentialRampToValueAtTime(0.001, roarTime + roarDuration);
+    growlGain.gain.setValueAtTime(0.14, roarTime);
+    growlGain.gain.exponentialRampToValueAtTime(0.26, roarTime + 0.22);
+    growlGain.gain.exponentialRampToValueAtTime(0.001, roarTime + roarDuration);
 
-    screamOsc.connect(roarFilter);
-    screamOsc.start(roarTime);
-    screamOsc.stop(roarTime + roarDuration + 0.05);
+    growlOsc.connect(bassPunchFilter);
+    growlOsc.start(roarTime);
+    growlOsc.stop(roarTime + roarDuration + 0.05);
 
-    // Open-exhaust gas shockwave blast (noise through peaking bandpass)
-    const bufferSize = Math.floor(ctx.sampleRate * 0.55);
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const noiseData = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      noiseData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.12));
-    }
+    // 4. Subtle F1 Hybrid Whine Layer (Pure sine wave, silky & technological, 50/50 balance)
+    const f1Osc = ctx.createOscillator();
+    const f1Filter = ctx.createBiquadFilter();
+    const f1Gain = ctx.createGain();
 
-    const whiteNoise = ctx.createBufferSource();
-    whiteNoise.buffer = noiseBuffer;
+    f1Osc.type = 'sine';
+    f1Osc.frequency.setValueAtTime(1500, roarTime);
+    f1Osc.frequency.exponentialRampToValueAtTime(2850, roarTime + 0.24);
+    f1Osc.frequency.exponentialRampToValueAtTime(1600, roarTime + roarDuration);
 
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.setValueAtTime(950, roarTime + 0.06);
-    noiseFilter.Q.setValueAtTime(1.8, roarTime + 0.06);
+    f1Filter.type = 'bandpass';
+    f1Filter.frequency.setValueAtTime(2200, roarTime);
+    f1Filter.Q.setValueAtTime(1.8, roarTime);
 
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.12, roarTime + 0.06);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, roarTime + 0.52);
+    f1Gain.gain.setValueAtTime(0.01, roarTime);
+    f1Gain.gain.exponentialRampToValueAtTime(0.16, roarTime + 0.22);
+    f1Gain.gain.exponentialRampToValueAtTime(0.001, roarTime + roarDuration);
 
-    whiteNoise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    f1Osc.connect(f1Filter);
+    f1Filter.connect(f1Gain);
+    f1Gain.connect(ctx.destination);
 
-    whiteNoise.start(roarTime + 0.06);
-    whiteNoise.stop(roarTime + 0.55);
-
-    // 4. Staggered open-exhaust backfire detonations during rev drop ("POP! BANG!")
-    [0.56, 0.82].forEach((popOffset, idx) => {
-      const popTime = now + popOffset;
-
-      // Crack transient
-      const popBufferLen = Math.floor(ctx.sampleRate * 0.12);
-      const popBuf = ctx.createBuffer(1, popBufferLen, ctx.sampleRate);
-      const popData = popBuf.getChannelData(0);
-      for (let i = 0; i < popBufferLen; i++) {
-        popData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.018));
-      }
-
-      const pNoise = ctx.createBufferSource();
-      pNoise.buffer = popBuf;
-
-      const pFilter = ctx.createBiquadFilter();
-      pFilter.type = 'bandpass';
-      pFilter.frequency.setValueAtTime(idx === 0 ? 1450 : 1150, popTime);
-      pFilter.Q.setValueAtTime(2.2, popTime);
-
-      const pGain = ctx.createGain();
-      pGain.gain.setValueAtTime(idx === 0 ? 0.22 : 0.16, popTime);
-      pGain.gain.exponentialRampToValueAtTime(0.001, popTime + 0.10);
-
-      pNoise.connect(pFilter);
-      pFilter.connect(pGain);
-      pGain.connect(ctx.destination);
-      pNoise.start(popTime);
-
-      // Low thump
-      const pOsc = ctx.createOscillator();
-      pOsc.type = 'triangle';
-      pOsc.frequency.setValueAtTime(idx === 0 ? 150 : 110, popTime);
-      pOsc.frequency.exponentialRampToValueAtTime(32, popTime + 0.10);
-
-      const pOscGain = ctx.createGain();
-      pOscGain.gain.setValueAtTime(idx === 0 ? 0.20 : 0.14, popTime);
-      pOscGain.gain.exponentialRampToValueAtTime(0.001, popTime + 0.11);
-
-      pOsc.connect(pOscGain);
-      pOscGain.connect(ctx.destination);
-      pOsc.start(popTime);
-      pOsc.stop(popTime + 0.12);
-    });
+    f1Osc.start(roarTime);
+    f1Osc.stop(roarTime + roarDuration + 0.05);
   } catch {
     // Audio context may not be ready yet
   }

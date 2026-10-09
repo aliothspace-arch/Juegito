@@ -1,95 +1,79 @@
-# Rediseño Acústico: Motor V12 de Competición y Escape Abierto
+# Plan de Potenciación Acústica: Rugido Masivo y Limitador al Corte Staccato
 
-Transformación completa del motor de sonido en Apex GT para emular un **V12 atmosférico de prototipo de resistencia (Le Mans Proto)**, caracterizado por un timbre metálico desgarrador, escape directo sin restricciones, petardeos violentos al soltar gas y corte de inyección rabioso, erradicando cualquier tono de pito o zumbido artificial.
+Este plan detalla la ampliación de potencia para el rugido del motor y el desarrollo de un corte de inyección de competición impresionante y visceral, manteniendo inalterado el silbido sutil de F1 ya validado.
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Se han incorporado las preferencias confirmadas por el usuario:
-> - **Tipo de Motor**: V12 prototipo de resistencia con timbre metálico desgarrador (alta frecuencia de detonación, 6 pulsos por vuelta).
-> - **Matiz Acústico**: Eliminación total de silbidos/zumbidos agudos de caja de cambios y priorización de escape libre abierto con petardeos y detonaciones explosivas.
+> Decisiones confirmadas por el usuario:
+> - **Silbido F1**: Se conserva exactamente como está configurado actualmente (100% aprobado).
+> - **Potenciación del Rugido**: Aumento sustancial de pegada en graves profundos (30–120 Hz) y mayor presión sonora de escape.
+> - **Corte de Inyección**: Limitador de competición *staccato* ultra rápido, violento y agresivo al llegar al régimen máximo.
 
-- **Decisión Confirmada 1**: Síntesis física procedural pura mediante Web Audio API optimizada (cero consumo de memoria externa, cero GC en el loop de 60/120 FPS).
-- **Decisión Confirmada 2**: Supresión definitiva de los osciladores sintéticos tipo sinusoidal/triangular de caja de cambios y turbo.
+- **Decisión Confirmada 1**: Preservar la rama del oscilador sinusoidal y filtro pasa-banda del silbido F1 sin alterar sus ganancias ni frecuencias.
+- **Decisión Confirmada 2**: Refuerzo de la presión sonora del bloque motor mediante escalado dinámico de ganancia en graves, resonador de escape de alta presión y saturador analógico con mayor umbral de empuje.
+- **Decisión Confirmada 3**: Limitador de encendido mecánico *staccato* de alta cadencia (modulación en onda cuadrada/pulso a 20–24 Hz a 9.350+ RPM) que genera el icónico repiqueteo seco y violento de carreras profesionales sin recurrir a petardeos artificiales.
 
 ---
 
 ### 1. Overview & Core Concept
 
-- **Qué hace**: Reemplaza el modelo sonoro genérico por un sintetizador acústico físico que modela la compresión de cilindros, el múltiple de escape 6 a 1, la resonancia de los tubos y los pulsos de escape de un bloque V12 girando entre 1.100 y 11.500 RPM.
-- **Público Objetivo / Experiencia**: Jugadores y entusiastas del automovilismo que buscan una inmersión visceral y adrenalínica donde el sonido transmita el peso, la violencia y la potencia real del coche.
-- **Valor Clave**: Acústica orgánica y potente que reacciona milimétricamente al pedal del acelerador y la carga del motor sin zumbidos molestos.
+- **Qué hace**: Eleva el rugido del motor para que se sienta gigantesco, pesado y rotundo en frecuencias bajas y medias, culminando en un corte de inyección demoledor que transmite el límite absoluto de la máquina cuando el piloto mantiene el acelerador a fondo.
+- **Público Objetivo**: Jugadores que buscan una experiencia sensorial de fuerza bruta, sintiendo la vibración en los altavoces/auriculares al acelerar y la adrenalina del motor rebotando en el limitador.
+- **Valor Clave**: Potencia acústica real basada en masa física y presión de gases, sin estridencias agudas.
 
 ---
 
 ### 2. User Experience & Acoustic Design
 
 - **Flujo de Escucha**:
-  1. **Arranque en Menú / Pista**: Marcha de arranque de competición de alta compresión y acelerón inicial desgarrador con bajada a ralentí tembloroso e irregular.
-  2. **Ralentí (Idle a 1.100 RPM)**: Latido grave y resonante en sub-graves (50–110 Hz) que sacude el chasis.
-  3. **Aceleración (WOT - Wide Open Throttle)**: Apertura del resonador de escape; el motor pasa de un bramido bronco a un aullido metálico estridente a medida que suben las RPM hacia las 11.000.
-  4. **Soltar el Acelerador (Lift-off & Downshift)**: Detonaciones estocásticas ("pops & bangs") y ráfagas de contrapresión de escape.
-  5. **Limitador de Revoluciones (Rev Limiter)**: Corte de inyección rápido tipo "machine gun" con llamaradas de audio y pulsos violentos.
+  1. **Aceleración Inicial (0 a 4.000 RPM)**: Empuje denso con presencia reforzada en sub-graves y resonancia de escape pesada.
+  2. **Medio Régimen a Fondo (4.000 a 8.500 RPM)**: El silbido F1 se entrelaza de forma suave mientras el rugido muscular gana decibelios y presión acústica.
+  3. **Llegada al Corte (9.350 RPM a 9.500 RPM)**: El motor alcanza la máxima tensión y entra en el limitador *staccato*: una ráfaga mecánica ultra veloz de corte y recuperación ("TAT-TAT-TAT-TAT-TAT!") con oscilación de graves que sacude la mezcla.
+  4. **Silbido F1 Intacto**: Mantiene su timbre sedoso de alta tecnología flotando en la mezcla sin ensuciarse.
 
 ---
 
 ### 3. Key Product Decisions & Trade-Offs
 
-- **Decisión 1: Frecuencia Fundamental de 6 Pulsos por Revolución (V12)**
-  - *Enfoque*: $f = (\text{RPM} / 60) \times 6$ como onda fundamental, combinada con armónicos impares y ondas periódicas `PeriodicWave` ricas en armónicos de resonancia de tubo abierto.
-  - *Por qué*: Refleja la física real de un V12 a 4 tiempos. Evita el sonido apagado o excesivamente lento de motores de 4 u 8 cilindros.
-  - *Alternativas*: Samples estáticos de audio grabados (descartados: mayor peso de descarga, transiciones de RPM poco naturales y problemas de bucle).
-- **Decisión 2: Erradicación del Oscilador de Engranajes Rectos (`gearWhineOsc`)**
-  - *Enfoque*: Desactivar el generador de frecuencias agudas de la transmisión que producía el sonido de silbido o "pito" no deseado.
-  - *Por qué*: El usuario especificó claramente rechazo a silbidos y sonidos artificiales.
-- **Decisión 3: Saturación No Lineal Analógica y Biquad Resonante de Escape**
-  - *Enfoque*: Curva de transferencia sigmoidea tipo `tanh` (WaveShaperNode) para simular la compresión acústica que se genera en los colectores de escape a plena carga.
+- **Decisión 1: Modulación de Corte Staccato a 22 Hz**
+  - *Enfoque*: En lugar de una curva sinusoidal lenta, utilizar una alternancia de compresión de alta velocidad (`targGain` alternando entre 0.04 y 1.15 cada 45 ms con ataque casi instantáneo).
+  - *Por qué*: Produce el efecto auténtico de limitador de encendido de ECU de carreras (tipo corte de caja secuencial / pit limiter F1), que suena mecánico, visceral y tecnológico sin petardeos.
+  - *Alternativas*: Cortes suaves de combustible (descartados: suenan débiles y sin emoción).
+- **Decisión 2: Refuerzo de Presión de Escape y Sub-Graves**
+  - *Enfoque*: Aumentar la amplitud de `gainSub` (+30%) y el pico de resonancia de `exhaustResonance` (+4 dB bajo carga WOT).
+  - *Por qué*: Llena el espacio de 35 a 180 Hz dando esa sensación física de cilindrada masiva que el usuario solicitó.
 
 ---
 
 ### 4. Technical Architecture & Data Strategy
 
 ```
-┌────────────────────────────────────────────────────────┐
-│             Vehículo / Física (RPM, Carga, Marcha)     │
-└───────────────────────────┬────────────────────────────┘
-                            │ (Parámetros continuos)
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│             Motor Acústico V12 (EngineSound.ts)        │
-│                                                        │
-│  ┌───────────────────┐    ┌─────────────────────────┐  │
-│  │ V12 Combustion    │    │ Sub-Bass Displacement   │  │
-│  │ (Custom Wave x 6) │    │ (Bloque motor x 1 / x2) │  │
-│  └─────────┬─────────┘    └───────────┬─────────────┘  │
-│            │                          │                │
-│            ▼                          ▼                │
-│  ┌───────────────────┐    ┌─────────────────────────┐  │
-│  │ Resonador Escape  │    │ Colector Metálico Merge │  │
-│  │ (Bandpass dinámico│    │ (Armónicos Impares Q)   │  │
-│  └─────────┬─────────┘    └───────────┬─────────────┘  │
-│            │                          │                │
-│            └───────────┬──────────────┘                │
-│                        ▼                               │
-│            ┌───────────────────────┐                   │
-│            │ Saturador Analógico   │                   │
-│            │ (WaveShaper Tanh)     │                   │
-│            └───────────┬───────────┘                   │
-│                        │                               │
-│  ┌───────────────────┐ │                               │
-│  │ Pops & Detonation ├─┤                               │
-│  │ Generator (Bangs) │ │                               │
-│  └───────────────────┘ │                               │
-│                        ▼                               │
-│            ┌───────────────────────┐                   │
-│            │ Lowpass Anti-Pito     │                   │
-│            │ (Corte suave 4.5 kHz) │                   │
-│            └───────────┬───────────┘                   │
-│                        ▼                               │
-│            ┌───────────────────────┐                   │
-│            │ Master Audio Context  │                   │
-│            └───────────────────────┘                   │
-└────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                 Física del Motor (RPM & Throttle)           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+┌───────────────────────────────┐   ┌───────────────────────────┐
+│   RAMA A: Rugido Muscular     │   │   RAMA B: Silbido F1      │
+│   (POTENCIA REFORZADA)        │   │   (INTACTO / PRESERVADO)  │
+├───────────────────────────────┤   ├───────────────────────────┤
+│ • Sub-Bass x2 Ganancia        │   │ • Sine Osc MGU-K          │
+│ • Resonador de Escape +4dB    │   │ • Bandpass 1.5 - 3.4 kHz  │
+│ • Saturación Cálida Tanh      │   │ • Ganancia sedosa intacta │
+└───────────────┬───────────────┘   └─────────────┬─────────────┘
+                │                                 │
+                ▼                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│   Limitador Staccato Ultra-Rápido (22 Hz @ RPM >= 9350)     │
+│   • Corte de ignición instantáneo (choke & release)         │
+│   • Modulación agresiva de amplitud en bloque motor         │
+└──────────────────────────────┬──────────────────────────────┘
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│   Master Engine Bus -> Compresor Dinámico -> Destino        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- **Rendimiento**: Se pre-instancian todos los nodos y buffers de ruido una sola vez durante el inicio. Cero asignaciones en memoria (`garbage collection free`) en el bucle de actualización a 60/120 FPS.
+- **Rendimiento**: Cero allocations en el bucle principal (60/120 FPS). La modulación de corte opera mediante `setTargetAtTime` de Web Audio API con respuesta inmediata en microsegundos.

@@ -1,6 +1,6 @@
 {
-  "summary":  "Plan de arquitectura acústica para el motor V12 de competición de Apex GT:\n- Modelado físico de pulsos de encendido V12 (6 explosiones por vuelta de cigüeñal).\n- Eliminación de zumbidos artificiales y silbidos de caja de cambios.\n- Sistema de escape abierto con resonador biquad y saturación no lineal.\n- Módulo de petardeos y detonaciones balísticas en desaceleración y limitador de corte.",
-  "updatedAt":  "2026-10-09T22:35:28.671258387Z",
+  "summary":  "Plan de potenciación del rugido acústico y limitador al corte de competición:\n- Mantenimiento intacto del silbido F1 (aprobado por el usuario).\n- Potenciación masiva del rugido muscular: mayor pegada en graves profundos (30-120 Hz), presión acústica de escape libre e inducción de gran cilindrada.\n- Limitador al corte ultra agresivo e impresionante: corte mecánico staccato de alta velocidad (18-24 Hz) con choque acústico de presión sin petardeos artificiales.",
+  "updatedAt":  "2026-10-09T23:07:06.357815973Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

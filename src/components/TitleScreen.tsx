@@ -100,7 +100,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({ onEnter }) => {
             <span className="text-neutral-300">CHAMPIONSHIP SPEC</span>
             <span className="text-neutral-600 font-bold">/</span>
             <span className="font-black tracking-[0.28em] bg-gradient-to-b from-sky-200 via-blue-600 to-indigo-950 bg-clip-text text-transparent drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] filter drop-shadow-[0_0_8px_rgba(37,99,235,0.75)]">
-              V12 PROTO
+              V8 F1 HYBRID
             </span>
           </div>
         </div>
